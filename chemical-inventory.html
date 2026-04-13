@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemical Inventory</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #181c27; --border: #2a2f3f;
+    --accent: #e8c840; --accent2: #3cb8a0; --danger: #e05c5c;
+    --text: #d4dae8; --muted: #6b7390;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow Condensed', sans-serif; min-height: 100vh; padding: 24px 16px 60px; }
+
+  header { margin-bottom: 20px; border-bottom: 2px solid var(--accent); padding-bottom: 14px; }
+  header h1 { font-size: 2rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .save-status { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; margin-top: 4px; }
+  .save-status.saving  { color: var(--accent); }
+  .save-status.saved   { color: var(--accent2); }
+  .save-status.error   { color: var(--danger); }
+  .save-status.loading { color: var(--muted); }
+
+  .summary-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; flex: 1; min-width: 90px; }
+  .s-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .s-val { font-size: 1.5rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; align-items: center; }
+  .toolbar label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .tbtn {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.82rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 13px;
+    border: 1.5px solid var(--border); background: var(--surface); color: var(--muted);
+    border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  }
+  .tbtn:hover, .tbtn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,200,64,0.07); }
+  .tbtn.danger:hover { border-color: var(--danger); color: var(--danger); background: none; }
+  .tbtn.add { border-color: var(--accent2); color: var(--accent2); background: rgba(60,184,160,0.07); margin-left: auto; }
+  .tbtn.add:hover { background: rgba(60,184,160,0.18); }
+
+  .category-section { margin-bottom: 16px; }
+  .category-header { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 3px 3px 0 0; user-select: none; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cat-name-wrap { flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 0; }
+  .cat-name-wrap h2 { font-size: 1rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .cat-edit-btn {
+    font-size: 0.65rem; padding: 2px 6px; border: 1px solid transparent;
+    background: none; color: var(--muted); border-radius: 2px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; opacity: 0; transition: opacity 0.15s; flex-shrink: 0;
+  }
+  .category-header:hover .cat-edit-btn { opacity: 1; }
+  .cat-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .cat-name-input {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; background: rgba(0,0,0,0.5);
+    border: 1.5px solid var(--accent); color: var(--accent); border-radius: 3px;
+    padding: 2px 8px; outline: none; width: 200px; max-width: 100%;
+  }
+  .cat-count { font-family: 'Share Tech Mono', monospace; font-size: 0.73rem; color: var(--muted); flex-shrink: 0; }
+  .chevron { font-size: 0.8rem; color: var(--muted); transition: transform 0.2s; cursor: pointer; flex-shrink: 0; }
+  .category-section.collapsed .chevron { transform: rotate(-90deg); }
+
+  .items-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-top: none; }
+  .category-section.collapsed .items-table { display: none; }
+  .items-table th {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); padding: 6px 10px; text-align: left;
+    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
+  }
+  .items-table td { padding: 8px 10px; font-size: 0.9rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .items-table tr:last-child td { border-bottom: none; }
+  .items-table tr:not(.add-row):hover td { background: rgba(255,255,255,0.02); }
+  .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
+  .status-ok { background: var(--accent2); }
+  .status-low { background: var(--accent); }
+  .status-out { background: var(--danger); }
+
+  .item-name-wrap { display: flex; align-items: center; gap: 5px; }
+  .item-name { font-weight: 600; }
+  .item-rename-btn {
+    background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; padding: 1px 4px;
+    border-radius: 2px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; line-height: 1.4;
+  }
+  tr:hover .item-rename-btn { opacity: 1; }
+  .item-rename-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .item-name-input {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.9rem; font-weight: 600;
+    background: rgba(0,0,0,0.45); border: 1.5px solid var(--accent); color: var(--text);
+    border-radius: 3px; padding: 2px 6px; outline: none; width: 100%; min-width: 100px;
+  }
+
+  .loc-select {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; font-weight: bold;
+    padding: 3px 4px; border-radius: 3px; cursor: pointer; outline: none;
+    transition: all 0.15s; appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b7390'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 5px center;
+    padding-right: 18px; min-width: 72px;
+  }
+  .loc-select.loc-Shop   { background-color: rgba(92,143,224,0.15); color: #5c8fe0; border: 1px solid rgba(92,143,224,0.3); }
+  .loc-select.loc-Crate  { background-color: rgba(232,200,64,0.12); color: #e8c840; border: 1px solid rgba(232,200,64,0.3); }
+  .loc-select.loc-Office { background-color: rgba(176,92,224,0.15); color: #b05ce0; border: 1px solid rgba(176,92,224,0.3); }
+  .loc-select option { background: #1a1e2e; color: var(--text); font-weight: normal; }
+
+  .qty-controls { display: flex; align-items: center; }
+  .qty-btn {
+    width: 24px; height: 24px; border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 1rem; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: all 0.1s; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  }
+  .qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .qty-btn.minus { border-radius: 3px 0 0 3px; }
+  .qty-btn.plus  { border-radius: 0 3px 3px 0; }
+  .qty-display {
+    min-width: 34px; height: 24px; background: var(--bg);
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--accent); font-weight: bold;
+  }
+  .qty-display.zero { color: var(--danger); }
+  .unit-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-left: 5px; }
+
+  .del-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.85rem; padding: 3px 6px; border-radius: 3px; transition: all 0.12s; line-height: 1;
+  }
+  .del-btn:hover { color: var(--danger); background: rgba(224,92,92,0.12); }
+
+  .add-row td { padding: 0 !important; }
+  .add-row-btn {
+    width: 100%; padding: 7px 12px; background: none; border: none;
+    border-top: 1px dashed var(--border); color: var(--muted);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.04em; cursor: pointer; text-align: left; transition: all 0.15s;
+  }
+  .add-row-btn:hover { color: var(--accent2); background: rgba(60,184,160,0.05); }
+
+  .modal-bg {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--accent2);
+    border-radius: 4px; padding: 22px; width: 100%; max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent2); margin-bottom: 18px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; padding: 8px 10px; background: var(--bg); border: 1.5px solid var(--border);
+    color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 1rem;
+    border-radius: 3px; outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent2); }
+  .field select option { background: #1a1e2e; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+  .modal-btn {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.9rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; padding: 7px 18px;
+    border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  }
+  .modal-btn.cancel { background: none; border: 1.5px solid var(--border); color: var(--muted); }
+  .modal-btn.cancel:hover { border-color: var(--danger); color: var(--danger); }
+  .modal-btn.confirm { background: rgba(60,184,160,0.15); border: 1.5px solid var(--accent2); color: var(--accent2); }
+  .modal-btn.confirm:hover { background: rgba(60,184,160,0.3); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧪 Chemical Inventory</h1>
+  <div class="save-status loading" id="save-status"><span class="spinner"></span>Connecting...</div>
+</header>
+
+<div class="summary-bar">
+  <div class="summary-card"><div class="s-label">Total SKUs</div><div class="s-val" id="stat-skus">—</div></div>
+  <div class="summary-card"><div class="s-label">Total Units</div><div class="s-val" id="stat-units">—</div></div>
+  <div class="summary-card"><div class="s-label">Low / Out</div><div class="s-val" id="stat-low">—</div></div>
+</div>
+
+<div class="toolbar">
+  <label>Filter:</label>
+  <button class="tbtn active" onclick="filterLoc('all',this)">All</button>
+  <button class="tbtn" onclick="filterLoc('Shop',this)">Shop</button>
+  <button class="tbtn" onclick="filterLoc('Crate',this)">Crate</button>
+  <button class="tbtn" onclick="filterLoc('Office',this)">Office</button>
+  <button class="tbtn danger" onclick="resetAll()" style="margin-left:8px;">↺ Reset</button>
+  <button class="tbtn add" onclick="openModal(null)">+ Add Item</button>
+</div>
+
+<div id="inventory-root"></div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>Add New Item</h3>
+    <div class="field">
+      <label>Product Name</label>
+      <input type="text" id="f-name" placeholder="e.g. Temprid SC">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Category</label>
+        <select id="f-cat"></select>
+      </div>
+      <div class="field">
+        <label>Location</label>
+        <select id="f-loc">
+          <option value="Shop">Shop</option>
+          <option value="Crate">Crate</option>
+          <option value="Office">Office</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Quantity</label>
+        <input type="number" id="f-qty" value="1" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Unit</label>
+        <input type="text" id="f-unit" placeholder="boxes, bottles…">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="submitItem()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+const SUPA_URL = 'https://pusizmqqdqmqgiskfkxt.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1c2l6bXFxZHFtcWdpc2tma3h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMDc5NDgsImV4cCI6MjA5MTY4Mzk0OH0.WNCZLtYFEawrl1wom_9HimOloGTlXOr8Fb_nQmmLids';
+const HEADERS  = { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY };
+
+async function dbGet() {
+  const r = await fetch(SUPA_URL + '/rest/v1/inventory_state?id=eq.1&select=*', { headers: HEADERS });
+  if (!r.ok) throw new Error('GET failed: ' + r.status);
+  const rows = await r.json();
+  return rows[0] || null;
+}
+
+async function dbSave(data) {
+  const r = await fetch(SUPA_URL + '/rest/v1/inventory_state', {
+    method: 'POST',
+    headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ id: 1, data })
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error('Save failed: ' + r.status + ' ' + txt);
+  }
+}
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const LOCATIONS = ['Shop', 'Crate', 'Office'];
+
+const DEFAULT_CATEGORIES = {
+  ants:    { label: 'Ants',                   color: '#e8a840' },
+  wasps:   { label: 'Wasps & Hornets',        color: '#e8c840' },
+  rodents: { label: 'Rodents',                color: '#e05c5c' },
+  bedbugs: { label: 'Bed Bugs',               color: '#b05ce0' },
+  flies:   { label: 'Flies & Flying Insects', color: '#3cb8a0' },
+  general: { label: 'General Insecticides',   color: '#5c8fe0' },
+  supplies:{ label: 'Supplies & Equipment',   color: '#7a8aa0' },
+};
+
+const SEED = [
+  { name: 'Scorpion Liquid Ant Bait',       cat: 'ants',    loc: 'Shop',  qty: 4,   unit: 'boxes' },
+  { name: 'Max Force Quantum',              cat: 'ants',    loc: 'Shop',  qty: 2,   unit: 'boxes' },
+  { name: 'Greenway',                       cat: 'ants',    loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'Ants No More Bait Station',      cat: 'ants',    loc: 'Crate', qty: 2,   unit: 'units' },
+  { name: 'On Guard Hornet & Wasp Foam',    cat: 'wasps',   loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'Doktor Doom Hornet & Wasp',      cat: 'wasps',   loc: 'Shop',  qty: 2,   unit: 'boxes' },
+  { name: 'On Guard Hornet & Wasp Blaster', cat: 'wasps',   loc: 'Shop',  qty: 2,   unit: 'boxes' },
+  { name: 'Yellow Jacket Traps',            cat: 'wasps',   loc: 'Crate', qty: 2,   unit: 'boxes' },
+  { name: 'Contrac Bag Bait',               cat: 'rodents', loc: 'Shop',  qty: 4,   unit: 'boxes' },
+  { name: 'Provoke',                        cat: 'rodents', loc: 'Shop',  qty: 1,   unit: 'container' },
+  { name: 'Bait Boxes',                     cat: 'rodents', loc: 'Crate', qty: 16,  unit: 'boxes' },
+  { name: 'Contrac Blox',                   cat: 'rodents', loc: 'Crate', qty: 12,  unit: 'pails' },
+  { name: 'Final Blox',                     cat: 'rodents', loc: 'Crate', qty: 2,   unit: 'pails' },
+  { name: 'Trapper T-Rex Snap Traps',       cat: 'rodents', loc: 'Crate', qty: 2,   unit: 'boxes' },
+  { name: 'Trapper Mini Rex Snap Traps',    cat: 'rodents', loc: 'Crate', qty: 1,   unit: 'box' },
+  { name: 'Repeater Catch-All Live Traps',  cat: 'rodents', loc: 'Crate', qty: 2,   unit: 'boxes' },
+  { name: 'BEAP Bedbug Detection',          cat: 'bedbugs', loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'Apprehend',                      cat: 'bedbugs', loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'Sensci Volcano Bedbug Trap',     cat: 'bedbugs', loc: 'Crate', qty: 1,   unit: 'box' },
+  { name: 'Insect Lamps 18"',               cat: 'flies',   loc: 'Shop',  qty: 6,   unit: 'units' },
+  { name: 'Fly Glue Boards',               cat: 'flies',   loc: 'Crate', qty: 3,   unit: 'boxes' },
+  { name: 'Catchmaster Insect Monitors',    cat: 'flies',   loc: 'Crate', qty: 1.5, unit: 'boxes' },
+  { name: 'Bug Bar',                        cat: 'general', loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'PM50',                           cat: 'general', loc: 'Shop',  qty: 1,   unit: 'box' },
+  { name: 'Pyrocide 300',                   cat: 'general', loc: 'Shop',  qty: 1,   unit: 'jug' },
+  { name: 'Temprid',                        cat: 'general', loc: 'Shop',  qty: 7,   unit: 'bottles' },
+  { name: 'Suspend',                        cat: 'general', loc: 'Shop',  qty: 6.5, unit: 'bottles' },
+  { name: 'Scorpio Pro',                    cat: 'general', loc: 'Shop',  qty: 2,   unit: 'bottles' },
+  { name: 'Timbor',                         cat: 'general', loc: 'Crate', qty: 1,   unit: 'pail' },
+  { name: 'Bug Bar',                        cat: 'general', loc: 'Crate', qty: 2,   unit: 'boxes' },
+  { name: 'Pro Pyrodust',                   cat: 'general', loc: 'Crate', qty: 8,   unit: 'boxes' },
+  { name: 'On Guard 4L',                    cat: 'general', loc: 'Crate', qty: 4,   unit: 'jugs' },
+  { name: 'Gloves',                         cat: 'supplies',loc: 'Crate', qty: 6,   unit: 'boxes' },
+  { name: 'Spill Kits',                     cat: 'supplies',loc: 'Crate', qty: 2,   unit: 'kits' },
+  { name: 'New Backpacks',                  cat: 'supplies',loc: 'Crate', qty: 2,   unit: 'units' },
+  { name: 'Jars',                           cat: 'supplies',loc: 'Crate', qty: 6,   unit: 'flats' },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+let live = SEED.map(i => ({ ...i, liveQty: i.qty, origLoc: i.loc, id: Math.random().toString(36).slice(2) }));
+let currentLoc = 'all';
+let editingCatKey = null;
+let editingItemId = null;
+let saveTimer = null;
+
+// ── STATUS ────────────────────────────────────────────────────────────────────
+function setStatus(msg, cls) {
+  const el = document.getElementById('save-status');
+  el.className = 'save-status ' + cls;
+  el.innerHTML = cls === 'saving' ? '<span class="spinner"></span>' + msg : msg;
+}
+
+// ── CLOUD SAVE (debounced) ────────────────────────────────────────────────────
+function schedSave() {
+  clearTimeout(saveTimer);
+  setStatus('Unsaved changes...', 'saving');
+  saveTimer = setTimeout(async () => {
+    try {
+      await dbSave({ categories, live });
+      setStatus('✓ Saved to cloud', 'saved');
+    } catch(e) {
+      setStatus('⚠ Save failed — check connection', 'error');
+      console.error(e);
+    }
+  }, 800);
+}
+
+// ── LOAD FROM CLOUD ───────────────────────────────────────────────────────────
+async function loadFromCloud() {
+  setStatus('Connecting...', 'loading');
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/inventory_state?select=*', { headers: HEADERS });
+    if (!r.ok) throw new Error('GET failed: ' + r.status);
+    const rows = await r.json();
+    const row = rows && rows.length > 0 ? rows[0] : null;
+    if (row && row.data && row.data.live && row.data.live.length > 0) {
+      live = row.data.live;
+      if (row.data.categories) categories = row.data.categories;
+      setStatus('✓ Loaded', 'saved');
+    } else {
+      setStatus('First run — saving initial data...', 'saving');
+      await dbSave({ categories, live });
+      setStatus('✓ Ready', 'saved');
+    }
+  } catch(e) {
+    setStatus('⚠ Could not connect — working offline', 'error');
+    console.error(e);
+  }
+  renderInventory();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function getStatus(q) { return q === 0 ? 'out' : q <= 1 ? 'low' : 'ok'; }
+function updateStats() {
+  const vis = currentLoc === 'all' ? live : live.filter(i => i.loc === currentLoc);
+  document.getElementById('stat-skus').textContent = vis.length;
+  document.getElementById('stat-units').textContent = Math.round(vis.reduce((s,i) => s + i.liveQty, 0) * 10) / 10;
+  document.getElementById('stat-low').textContent = vis.filter(i => i.liveQty <= 1).length;
+}
+
+// ── QUANTITY ──────────────────────────────────────────────────────────────────
+function changeQty(id, delta) {
+  const item = live.find(i => i.id === id); if (!item) return;
+  item.liveQty = Math.max(0, Math.round((item.liveQty + delta) * 10) / 10);
+  const el = document.getElementById('qty-' + id);
+  if (el) { el.textContent = item.liveQty; el.className = 'qty-display' + (item.liveQty === 0 ? ' zero' : ''); }
+  updateStats(); schedSave();
+}
+
+// ── LOCATION ──────────────────────────────────────────────────────────────────
+function setLocation(id, newLoc) {
+  const item = live.find(i => i.id === id); if (!item) return;
+  item.loc = newLoc;
+  const sel = document.getElementById('loc-sel-' + id);
+  if (sel) sel.className = 'loc-select loc-' + newLoc;
+  updateStats(); schedSave();
+}
+
+// ── ITEM RENAME ───────────────────────────────────────────────────────────────
+function startRenameItem(id, e) {
+  e.stopPropagation(); editingItemId = id; renderInventory();
+  setTimeout(() => { const inp = document.getElementById('item-input-' + id); if (inp) { inp.focus(); inp.select(); } }, 30);
+}
+function saveItemName(id, e) {
+  if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== 'Escape') return;
+  if (e.key === 'Escape') { editingItemId = null; renderInventory(); return; }
+  const inp = document.getElementById('item-input-' + id);
+  const item = live.find(i => i.id === id);
+  if (inp && inp.value.trim() && item) item.name = inp.value.trim();
+  editingItemId = null; renderInventory(); schedSave();
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+function deleteItem(id) {
+  if (!confirm('Remove this item?')) return;
+  live = live.filter(i => i.id !== id);
+  renderInventory(); schedSave();
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────────
+function resetAll() {
+  if (!confirm('Reset all quantities and locations back to original?')) return;
+  live.forEach(item => { item.liveQty = item.qty; item.loc = item.origLoc; });
+  renderInventory(); schedSave();
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function filterLoc(loc, btn) {
+  currentLoc = loc;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInventory();
+}
+
+// ── COLLAPSE ──────────────────────────────────────────────────────────────────
+function toggleCat(secId) { document.getElementById(secId).classList.toggle('collapsed'); }
+
+// ── CATEGORY RENAME ───────────────────────────────────────────────────────────
+function startEditCat(catKey, e) {
+  e.stopPropagation(); editingCatKey = catKey; renderInventory();
+  setTimeout(() => { const inp = document.getElementById('cat-input-' + catKey); if (inp) { inp.focus(); inp.select(); } }, 30);
+}
+function saveCatName(catKey, e) {
+  if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== 'Escape') return;
+  if (e.key === 'Escape') { editingCatKey = null; renderInventory(); return; }
+  const inp = document.getElementById('cat-input-' + catKey);
+  if (inp && inp.value.trim()) categories[catKey].label = inp.value.trim();
+  editingCatKey = null; renderInventory(); schedSave();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(presetCat) {
+  const sel = document.getElementById('f-cat');
+  sel.innerHTML = Object.entries(categories).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
+  if (presetCat) sel.value = presetCat;
+  const locSel = document.getElementById('f-loc');
+  if (currentLoc !== 'all') locSel.value = currentLoc;
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-qty').value = '1';
+  document.getElementById('f-unit').value = '';
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 60);
+}
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+function submitItem() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); return; }
+  const cat  = document.getElementById('f-cat').value;
+  const loc  = document.getElementById('f-loc').value;
+  const qty  = parseFloat(document.getElementById('f-qty').value) || 0;
+  const unit = document.getElementById('f-unit').value.trim() || 'units';
+  live.push({ name, cat, loc, qty, unit, liveQty: qty, origLoc: loc, id: Math.random().toString(36).slice(2) });
+  closeModal(); renderInventory(); schedSave();
+}
+document.getElementById('modal-bg').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderInventory() {
+  const root = document.getElementById('inventory-root');
+  root.innerHTML = '';
+
+  Object.entries(categories).forEach(([catKey, catMeta]) => {
+    const items = live.filter(i => i.cat === catKey && (currentLoc === 'all' || i.loc === currentLoc));
+    if (items.length === 0 && currentLoc !== 'all') return;
+
+    const secId = 'sec-' + catKey;
+    const sec = document.createElement('div');
+    sec.className = 'category-section'; sec.id = secId;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'category-header';
+    hdr.style.background = catMeta.color + '18';
+    hdr.style.borderLeft = '3px solid ' + catMeta.color;
+
+    const countHtml = `<span class="cat-count">${items.length} SKU${items.length !== 1 ? 's' : ''}</span>`;
+    const chevHtml  = `<span class="chevron" onclick="toggleCat('${secId}')">▾</span>`;
+
+    if (editingCatKey === catKey) {
+      hdr.innerHTML = `
+        <span class="cat-dot" style="background:${catMeta.color}"></span>
+        <div class="cat-name-wrap" style="cursor:default">
+          <input class="cat-name-input" id="cat-input-${catKey}" value="${catMeta.label}"
+            onblur="saveCatName('${catKey}',event)"
+            onkeydown="saveCatName('${catKey}',event)"
+            onclick="event.stopPropagation()">
+        </div>${countHtml}${chevHtml}`;
+    } else {
+      hdr.innerHTML = `
+        <span class="cat-dot" style="background:${catMeta.color}"></span>
+        <div class="cat-name-wrap" onclick="toggleCat('${secId}')">
+          <h2 style="color:${catMeta.color}">${catMeta.label}</h2>
+          <button class="cat-edit-btn" onclick="startEditCat('${catKey}',event)">✎ rename</button>
+        </div>${countHtml}${chevHtml}`;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'items-table';
+    table.innerHTML = `<thead><tr>
+      <th>Product</th><th>Location</th>
+      <th style="text-align:center">Quantity</th><th></th>
+    </tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+
+    items.forEach(item => {
+      const status = getStatus(item.liveQty);
+      const dotCls = status === 'ok' ? 'status-ok' : status === 'low' ? 'status-low' : 'status-out';
+      const locOptions = LOCATIONS.map(l => `<option value="${l}"${l === item.loc ? ' selected' : ''}>${l}</option>`).join('');
+      const tr = document.createElement('tr');
+
+      let nameCellHtml;
+      if (editingItemId === item.id) {
+        nameCellHtml = `<td><input class="item-name-input" id="item-input-${item.id}"
+          value="${item.name.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          onblur="saveItemName('${item.id}',event)"
+          onkeydown="saveItemName('${item.id}',event)"
+          onclick="event.stopPropagation()"></td>`;
+      } else {
+        nameCellHtml = `<td><div class="item-name-wrap">
+          <span class="status-dot ${dotCls}"></span>
+          <span class="item-name">${item.name}</span>
+          <button class="item-rename-btn" onclick="startRenameItem('${item.id}',event)" title="Rename">✎</button>
+        </div></td>`;
+      }
+
+      tr.innerHTML = `
+        ${nameCellHtml}
+        <td><select class="loc-select loc-${item.loc}" id="loc-sel-${item.id}"
+          onchange="setLocation('${item.id}',this.value)">${locOptions}</select></td>
+        <td><div class="qty-controls">
+          <button class="qty-btn minus" onclick="changeQty('${item.id}',-1)">−</button>
+          <div class="qty-display${item.liveQty === 0 ? ' zero' : ''}" id="qty-${item.id}">${item.liveQty}</div>
+          <button class="qty-btn plus" onclick="changeQty('${item.id}',1)">+</button>
+          <span class="unit-label">${item.unit}</span>
+        </div></td>
+        <td style="text-align:center"><button class="del-btn" onclick="deleteItem('${item.id}')" title="Remove">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    const addTr = document.createElement('tr');
+    addTr.className = 'add-row';
+    addTr.innerHTML = `<td colspan="4"><button class="add-row-btn" onclick="openModal('${catKey}')">+ Add item to ${catMeta.label}</button></td>`;
+    tbody.appendChild(addTr);
+
+    sec.appendChild(hdr);
+    sec.appendChild(table);
+    root.appendChild(sec);
+  });
+
+  updateStats();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadFromCloud();
+</script>
+</body>
+</html>
