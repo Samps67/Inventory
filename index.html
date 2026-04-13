@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemical Inventory</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0f1117;--surface:#181c27;--border:#2a2f3f;
+    --accent:#e8c840;--accent2:#3cb8a0;--danger:#e05c5c;
+    --text:#d4dae8;--muted:#6b7390;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh;padding:22px 16px 60px;}
+
+  header{margin-bottom:20px;border-bottom:2px solid var(--accent);padding-bottom:14px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  header h1{font-size:2.3rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);cursor:pointer;border-bottom:2px solid transparent;transition:border-color .15s;display:inline-block;}
+  header h1:hover{border-bottom-color:var(--accent);}
+  .title-input{font-family:'Barlow Condensed',sans-serif;font-size:2.3rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);background:rgba(0,0,0,.4);border:none;border-bottom:2px solid var(--accent);outline:none;width:320px;max-width:100%;}
+  .save-status{font-family:'Share Tech Mono',monospace;font-size:.78rem;margin-top:5px;}
+  .save-status.saving{color:var(--accent);}
+  .save-status.saved{color:var(--accent2);}
+  .save-status.error{color:var(--danger);}
+  .save-status.loading{color:var(--muted);}
+
+  .summary-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:11px 16px;flex:1;min-width:90px;}
+  .s-label{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+  .s-val{font-size:1.7rem;font-weight:700;color:var(--accent);line-height:1.1;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;align-items:center;}
+  .toolbar-sep{width:1px;height:22px;background:var(--border);margin:0 2px;}
+  .tbtn{font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:7px 15px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);border-radius:3px;cursor:pointer;transition:all .15s;}
+  .tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,200,64,.07);}
+  .tbtn.danger:hover{border-color:var(--danger);color:var(--danger);background:none;}
+  .tbtn.green{border-color:var(--accent2);color:var(--accent2);background:rgba(60,184,160,.07);}
+  .tbtn.green:hover{background:rgba(60,184,160,.18);}
+  .tbtn.ml{margin-left:auto;}
+
+  /* CATEGORY */
+  .category-section{margin-bottom:16px;}
+  .category-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:3px 3px 0 0;user-select:none;}
+  .cat-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .cat-name-wrap{flex:1;display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0;}
+  .cat-name-wrap h2{font-size:1.08rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
+  .cat-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+  .category-header:hover .cat-actions{opacity:1;}
+  .cat-btn{font-size:.7rem;padding:3px 8px;border:1px solid transparent;background:none;color:var(--muted);border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;white-space:nowrap;}
+  .cat-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .cat-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+  .cat-name-input{font-family:'Barlow Condensed',sans-serif;font-size:1.08rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:rgba(0,0,0,.5);border:1.5px solid var(--accent);color:var(--accent);border-radius:3px;padding:2px 8px;outline:none;width:200px;max-width:100%;}
+  .cat-count{font-family:'Share Tech Mono',monospace;font-size:.76rem;color:var(--muted);flex-shrink:0;}
+  .chevron{font-size:.85rem;color:var(--muted);transition:transform .2s;cursor:pointer;flex-shrink:0;}
+  .category-section.collapsed .chevron{transform:rotate(-90deg);}
+
+  /* TABLE */
+  .items-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-top:none;table-layout:fixed;}
+  .items-table colgroup col:nth-child(1){width:auto;}
+  .items-table colgroup col:nth-child(2){width:96px;}
+  .items-table colgroup col:nth-child(3){width:180px;}
+  .items-table colgroup col:nth-child(4){width:36px;}
+  .category-section.collapsed .items-table{display:none;}
+  .items-table th{font-family:'Share Tech Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:7px 12px;text-align:left;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+  .items-table td{padding:10px 12px;font-size:.98rem;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;}
+  .items-table tr:last-child td{border-bottom:none;}
+  .items-table tr:not(.add-row):hover td{background:rgba(255,255,255,.02);}
+
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;flex-shrink:0;}
+  .status-ok{background:var(--accent2);}
+  .status-low{background:var(--accent);}
+  .status-out{background:var(--danger);}
+
+  .item-name-wrap{display:flex;align-items:center;gap:5px;}
+  .item-name{font-weight:600;}
+  .item-edit-btn{background:none;border:1px solid transparent;color:var(--muted);cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:.66rem;padding:2px 5px;border-radius:2px;opacity:0;transition:opacity .15s;flex-shrink:0;line-height:1.4;}
+  tr:hover .item-edit-btn{opacity:1;}
+  .item-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .item-inline-input{font-family:'Barlow Condensed',sans-serif;font-size:.98rem;font-weight:600;background:rgba(0,0,0,.45);border:1.5px solid var(--accent);color:var(--text);border-radius:3px;padding:2px 6px;outline:none;width:100%;min-width:80px;}
+  .unit-inline-input{font-family:'Share Tech Mono',monospace;font-size:.72rem;background:rgba(0,0,0,.45);border:1.5px solid var(--accent2);color:var(--text);border-radius:3px;padding:2px 5px;outline:none;width:60px;}
+
+  /* LOCATION */
+  .loc-select{font-family:'Share Tech Mono',monospace;font-size:.75rem;font-weight:bold;padding:4px 5px;border-radius:3px;cursor:pointer;outline:none;transition:all .15s;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b7390'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:20px;min-width:74px;}
+  .loc-Shop{background-color:rgba(92,143,224,.15);color:#5c8fe0;border:1px solid rgba(92,143,224,.3);}
+  .loc-Crate{background-color:rgba(232,200,64,.12);color:#e8c840;border:1px solid rgba(232,200,64,.3);}
+  .loc-Office{background-color:rgba(176,92,224,.15);color:#b05ce0;border:1px solid rgba(176,92,224,.3);}
+  .loc-select option{background:#1a1e2e;color:var(--text);font-weight:normal;}
+
+  /* QTY */
+  .qty-controls{display:flex;align-items:center;}
+  .qty-btn{width:30px;height:30px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+  .qty-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .qty-btn.minus{border-radius:3px 0 0 3px;}
+  .qty-btn.plus{border-radius:0 3px 3px 0;}
+  .qty-display{min-width:42px;height:30px;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:.88rem;color:var(--accent);font-weight:bold;}
+  .qty-display.zero{color:var(--danger);}
+  .unit-label{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);margin-left:6px;cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s;}
+  .unit-label:hover{border-bottom-color:var(--accent2);color:var(--accent2);}
+
+  .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;padding:4px 7px;border-radius:3px;transition:all .12s;line-height:1;}
+  .del-btn:hover{color:var(--danger);background:rgba(224,92,92,.12);}
+
+  .add-row td{padding:0!important;}
+  .add-row-btn{width:100%;padding:9px 14px;background:none;border:none;border-top:1px dashed var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.73rem;letter-spacing:.04em;cursor:pointer;text-align:left;transition:all .15s;}
+  .add-row-btn:hover{color:var(--accent2);background:rgba(60,184,160,.05);}
+
+  /* MODALS */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:18px;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent2);border-radius:4px;padding:22px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .modal h3{font-size:1.15rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:18px;}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;}
+  .field input,.field select{width:100%;padding:9px 10px;background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;border-radius:3px;outline:none;transition:border-color .15s;}
+  .field input:focus,.field select:focus{border-color:var(--accent2);}
+  .field select option{background:#1a1e2e;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .color-swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
+  .swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;}
+  .swatch.active,.swatch:hover{border-color:#fff;transform:scale(1.15);}
+  .modal-actions{display:flex;gap:9px;margin-top:16px;justify-content:flex-end;}
+  .modal-btn{font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 16px;border-radius:3px;cursor:pointer;transition:all .15s;}
+  .modal-btn.cancel{background:none;border:1.5px solid var(--border);color:var(--muted);}
+  .modal-btn.cancel:hover{border-color:var(--danger);color:var(--danger);}
+  .modal-btn.confirm{background:rgba(60,184,160,.15);border:1.5px solid var(--accent2);color:var(--accent2);}
+  .modal-btn.confirm:hover{background:rgba(60,184,160,.3);}
+
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.8rem;line-height:2;}
+  .empty-state .big{font-size:2rem;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="app-title" onclick="startEditTitle()" title="Click to rename">🧪 Chemical Inventory</h1>
+    <div class="save-status loading" id="save-status"><span class="spinner"></span>Connecting...</div>
+  </div>
+</header>
+
+<div class="summary-bar">
+  <div class="summary-card"><div class="s-label">Total SKUs</div><div class="s-val" id="stat-skus">—</div></div>
+  <div class="summary-card"><div class="s-label">Total Units</div><div class="s-val" id="stat-units">—</div></div>
+  <div class="summary-card"><div class="s-label">Low / Out</div><div class="s-val" id="stat-low">—</div></div>
+</div>
+
+<div class="toolbar">
+  <label>Filter:</label>
+  <button class="tbtn active" onclick="filterLoc('all',this)">All</button>
+  <button class="tbtn" onclick="filterLoc('Shop',this)">Shop</button>
+  <button class="tbtn" onclick="filterLoc('Crate',this)">Crate</button>
+  <button class="tbtn" onclick="filterLoc('Office',this)">Office</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn green" onclick="openCatModal()">+ Category</button>
+  <button class="tbtn green ml" onclick="openItemModal(null)">+ Item</button>
+</div>
+
+<div id="inventory-root"></div>
+
+<!-- ADD/EDIT ITEM MODAL -->
+<div class="modal-bg" id="item-modal-bg">
+  <div class="modal">
+    <h3 id="item-modal-title">Add Item</h3>
+    <div class="field">
+      <label>Product Name</label>
+      <input type="text" id="f-name" placeholder="e.g. Temprid SC">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Category</label>
+        <select id="f-cat"></select>
+      </div>
+      <div class="field">
+        <label>Location</label>
+        <select id="f-loc">
+          <option value="Shop">Shop</option>
+          <option value="Crate">Crate</option>
+          <option value="Office">Office</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Quantity</label>
+        <input type="number" id="f-qty" value="1" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Unit</label>
+        <input type="text" id="f-unit" placeholder="boxes, bottles…">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeItemModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="submitItem()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT CATEGORY MODAL -->
+<div class="modal-bg" id="cat-modal-bg">
+  <div class="modal">
+    <h3 id="cat-modal-title">Add Category</h3>
+    <div class="field">
+      <label>Category Name</label>
+      <input type="text" id="cf-name" placeholder="e.g. Rodents">
+    </div>
+    <div class="field">
+      <label>Colour</label>
+      <div class="color-swatches" id="color-swatches"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeCatModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="submitCat()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://pusizmqqdqmqgiskfkxt.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1c2l6bXFxZHFtcWdpc2tma3h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMDc5NDgsImV4cCI6MjA5MTY4Mzk0OH0.WNCZLtYFEawrl1wom_9HimOloGTlXOr8Fb_nQmmLids';
+const HDRS = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+
+async function dbLoad() {
+  const r = await fetch(SUPA_URL+'/rest/v1/inventory_state?id=eq.main&select=*',{headers:HDRS});
+  if(!r.ok) throw new Error('Load failed '+r.status);
+  const rows = await r.json();
+  return rows[0]||null;
+}
+async function dbSave(payload) {
+  const r = await fetch(SUPA_URL+'/rest/v1/inventory_state',{
+    method:'POST',
+    headers:{...HDRS,'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({id:'main',data:payload})
+  });
+  if(!r.ok){const t=await r.text();throw new Error('Save failed '+r.status+' '+t);}
+}
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const LOCATIONS = ['Shop','Crate','Office'];
+const CAT_COLORS = ['#e8a840','#e8c840','#e05c5c','#b05ce0','#3cb8a0','#5c8fe0','#7a8aa0','#e87070','#70c4e8','#a0e870','#e870b0','#70e8a0'];
+const STEP = 0.5;
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let categories = {}; // starts empty — user builds their own
+let live = [];
+let appTitle = '🧪 Chemical Inventory';
+let currentLoc = 'all';
+let editingCatKey = null;
+let editingItemId = null;
+let editingUnitId = null;
+let editingCatModalKey = null; // for editing existing category
+let selectedColor = CAT_COLORS[0];
+let saveTimer = null;
+
+// ── STATUS ────────────────────────────────────────────────────────────────────
+function setStatus(msg,cls){
+  const el=document.getElementById('save-status');
+  el.className='save-status '+cls;
+  el.innerHTML=cls==='saving'||cls==='loading'?'<span class="spinner"></span>'+msg:msg;
+}
+
+// ── SAVE (debounced) ──────────────────────────────────────────────────────────
+function schedSave(){
+  clearTimeout(saveTimer);
+  setStatus('Saving...','saving');
+  saveTimer=setTimeout(async()=>{
+    try{
+      await dbSave({categories,live,appTitle});
+      setStatus('✓ Saved','saved');
+    }catch(e){
+      setStatus('⚠ Save failed','error');
+      console.error(e);
+    }
+  },600);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+async function loadFromCloud(){
+  setStatus('Connecting...','loading');
+  try{
+    const row=await dbLoad();
+    if(row&&row.data&&row.data.categories&&Object.keys(row.data.categories).length>0){
+      categories=row.data.categories;
+      live=row.data.live||[];
+      if(row.data.appTitle){ appTitle=row.data.appTitle; document.getElementById('app-title').textContent=appTitle; }
+      setStatus('✓ Loaded','saved');
+    } else {
+      await dbSave({categories,live,appTitle});
+      setStatus('✓ Ready — add your first category!','saved');
+    }
+  }catch(e){
+    setStatus('⚠ Could not connect','error');
+    console.error(e);
+  }
+  renderInventory();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function uid(){return Math.random().toString(36).slice(2);}
+function getStatus(q){return q===0?'out':q<=1?'low':'ok';}
+function fmt(n){return n%1===0?String(n):String(n);}
+function updateStats(){
+  const vis=currentLoc==='all'?live:live.filter(i=>i.loc===currentLoc);
+  document.getElementById('stat-skus').textContent=vis.length;
+  document.getElementById('stat-units').textContent=fmt(Math.round(vis.reduce((s,i)=>s+i.liveQty,0)*10)/10);
+  document.getElementById('stat-low').textContent=vis.filter(i=>i.liveQty<=1).length;
+}
+
+// ── QUANTITY ──────────────────────────────────────────────────────────────────
+function changeQty(id,delta){
+  const item=live.find(i=>i.id===id);if(!item)return;
+  item.liveQty=Math.max(0,Math.round((item.liveQty+delta)*10)/10);
+  const el=document.getElementById('qty-'+id);
+  if(el){el.textContent=fmt(item.liveQty);el.className='qty-display'+(item.liveQty===0?' zero':'');}
+  updateStats();schedSave();
+}
+
+// ── LOCATION ──────────────────────────────────────────────────────────────────
+function setLocation(id,newLoc){
+  const item=live.find(i=>i.id===id);if(!item)return;
+  item.loc=newLoc;
+  const sel=document.getElementById('loc-sel-'+id);
+  if(sel)sel.className='loc-select loc-'+newLoc;
+  updateStats();schedSave();
+}
+
+// ── ITEM NAME EDIT ────────────────────────────────────────────────────────────
+function startRenameItem(id,e){
+  e.stopPropagation();editingItemId=id;editingUnitId=null;renderInventory();
+  setTimeout(()=>{const inp=document.getElementById('item-input-'+id);if(inp){inp.focus();inp.select();}},30);
+}
+function saveItemName(id,e){
+  if(e.type==='keydown'&&e.key!=='Enter'&&e.key!=='Escape')return;
+  if(e.key==='Escape'){editingItemId=null;renderInventory();return;}
+  const inp=document.getElementById('item-input-'+id);
+  const item=live.find(i=>i.id===id);
+  if(inp&&inp.value.trim()&&item)item.name=inp.value.trim();
+  editingItemId=null;renderInventory();schedSave();
+}
+
+// ── UNIT EDIT ─────────────────────────────────────────────────────────────────
+function startEditUnit(id,e){
+  e.stopPropagation();editingUnitId=id;editingItemId=null;renderInventory();
+  setTimeout(()=>{const inp=document.getElementById('unit-input-'+id);if(inp){inp.focus();inp.select();}},30);
+}
+function saveUnit(id,e){
+  if(e.type==='keydown'&&e.key!=='Enter'&&e.key!=='Escape')return;
+  if(e.key==='Escape'){editingUnitId=null;renderInventory();return;}
+  const inp=document.getElementById('unit-input-'+id);
+  const item=live.find(i=>i.id===id);
+  if(inp&&inp.value.trim()&&item)item.unit=inp.value.trim();
+  editingUnitId=null;renderInventory();schedSave();
+}
+
+// ── DELETE ITEM ───────────────────────────────────────────────────────────────
+function deleteItem(id){
+  if(!confirm('Remove this item?'))return;
+  live=live.filter(i=>i.id!==id);
+  renderInventory();schedSave();
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────────
+function resetAll(){
+  if(!confirm('Reset all quantities back to original?'))return;
+  live.forEach(item=>{item.liveQty=item.qty;item.loc=item.origLoc;});
+  renderInventory();schedSave();
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function filterLoc(loc,btn){
+  currentLoc=loc;
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInventory();
+}
+
+// ── COLLAPSE ──────────────────────────────────────────────────────────────────
+function toggleCat(secId){document.getElementById(secId).classList.toggle('collapsed');}
+
+// ── CATEGORY MODAL ────────────────────────────────────────────────────────────
+function openCatModal(editKey){
+  editingCatModalKey=editKey||null;
+  selectedColor=editKey?categories[editKey].color:CAT_COLORS[0];
+  document.getElementById('cat-modal-title').textContent=editKey?'Edit Category':'Add Category';
+  document.getElementById('cf-name').value=editKey?categories[editKey].label:'';
+  // build swatches
+  const sw=document.getElementById('color-swatches');
+  sw.innerHTML=CAT_COLORS.map(c=>`<div class="swatch${c===selectedColor?' active':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`).join('');
+  document.getElementById('cat-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('cf-name').focus(),60);
+}
+function closeCatModal(){document.getElementById('cat-modal-bg').classList.remove('open');}
+function pickColor(c,el){
+  selectedColor=c;
+  document.querySelectorAll('#color-swatches .swatch').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+}
+function submitCat(){
+  const name=document.getElementById('cf-name').value.trim();
+  if(!name){document.getElementById('cf-name').focus();return;}
+  if(editingCatModalKey){
+    categories[editingCatModalKey].label=name;
+    categories[editingCatModalKey].color=selectedColor;
+  } else {
+    const key='cat_'+uid();
+    categories[key]={label:name,color:selectedColor};
+  }
+  closeCatModal();renderInventory();schedSave();
+}
+function deleteCat(catKey,e){
+  e.stopPropagation();
+  const count=live.filter(i=>i.cat===catKey).length;
+  const msg=count>0?`Delete "${categories[catKey].label}"? This will also delete ${count} item${count!==1?'s':''} in it.`:`Delete "${categories[catKey].label}"?`;
+  if(!confirm(msg))return;
+  live=live.filter(i=>i.cat!==catKey);
+  delete categories[catKey];
+  renderInventory();schedSave();
+}
+
+// ── ITEM MODAL ────────────────────────────────────────────────────────────────
+function openItemModal(presetCat){
+  const sel=document.getElementById('f-cat');
+  const catEntries=Object.entries(categories);
+  if(catEntries.length===0){alert('Add a category first!');return;}
+  sel.innerHTML=catEntries.map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  if(presetCat)sel.value=presetCat;
+  const locSel=document.getElementById('f-loc');
+  if(currentLoc!=='all')locSel.value=currentLoc;
+  document.getElementById('f-name').value='';
+  document.getElementById('f-qty').value='1';
+  document.getElementById('f-unit').value='';
+  document.getElementById('item-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),60);
+}
+function closeItemModal(){document.getElementById('item-modal-bg').classList.remove('open');}
+function submitItem(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){document.getElementById('f-name').focus();return;}
+  const cat=document.getElementById('f-cat').value;
+  const loc=document.getElementById('f-loc').value;
+  const qty=parseFloat(document.getElementById('f-qty').value)||0;
+  const unit=document.getElementById('f-unit').value.trim()||'units';
+  live.push({name,cat,loc,qty,unit,liveQty:qty,origLoc:loc,id:uid()});
+  closeItemModal();renderInventory();schedSave();
+}
+
+// close modals on bg click / escape
+['item-modal-bg','cat-modal-bg'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this){closeItemModal();closeCatModal();}});
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeItemModal();closeCatModal();}});
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderInventory(){
+  const root=document.getElementById('inventory-root');
+  root.innerHTML='';
+
+  const catEntries=Object.entries(categories);
+  if(catEntries.length===0){
+    root.innerHTML=`<div class="empty-state"><div class="big">📦</div>No categories yet.<br>Hit <strong>+ Category</strong> to get started.</div>`;
+    updateStats();return;
+  }
+
+  catEntries.forEach(([catKey,catMeta])=>{
+    const items=live.filter(i=>i.cat===catKey&&(currentLoc==='all'||i.loc===currentLoc));
+    if(items.length===0&&currentLoc!=='all')return;
+
+    const secId='sec-'+catKey;
+    const sec=document.createElement('div');
+    sec.className='category-section';sec.id=secId;
+
+    const hdr=document.createElement('div');
+    hdr.className='category-header';
+    hdr.style.background=catMeta.color+'18';
+    hdr.style.borderLeft='3px solid '+catMeta.color;
+
+    const countHtml=`<span class="cat-count">${items.length} item${items.length!==1?'s':''}</span>`;
+    const chevHtml=`<span class="chevron" onclick="toggleCat('${secId}')">▾</span>`;
+
+    if(editingCatKey===catKey){
+      hdr.innerHTML=`
+        <span class="cat-dot" style="background:${catMeta.color}"></span>
+        <div class="cat-name-wrap" style="cursor:default">
+          <input class="cat-name-input" id="cat-input-${catKey}" value="${catMeta.label}"
+            onblur="saveCatInline('${catKey}',event)" onkeydown="saveCatInline('${catKey}',event)" onclick="event.stopPropagation()">
+        </div>${countHtml}${chevHtml}`;
+    } else {
+      hdr.innerHTML=`
+        <span class="cat-dot" style="background:${catMeta.color}" onclick="toggleCat('${secId}')"></span>
+        <div class="cat-name-wrap" onclick="toggleCat('${secId}')">
+          <h2 style="color:${catMeta.color}">${catMeta.label}</h2>
+        </div>
+        <div class="cat-actions">
+          <button class="cat-btn" onclick="openCatModal('${catKey}');event.stopPropagation()">✎ edit</button>
+          <button class="cat-btn del" onclick="deleteCat('${catKey}',event)">✕ delete</button>
+        </div>
+        ${countHtml}${chevHtml}`;
+    }
+
+    const table=document.createElement('table');
+    table.className='items-table';
+    table.innerHTML=`<colgroup><col><col style="width:88px"><col style="width:168px"><col style="width:34px"></colgroup>
+    <thead><tr>
+      <th>Product</th><th>Location</th><th>Quantity</th><th></th>
+    </tr></thead><tbody></tbody>`;
+    const tbody=table.querySelector('tbody');
+
+    items.forEach(item=>{
+      const st=getStatus(item.liveQty);
+      const dotCls=st==='ok'?'status-ok':st==='low'?'status-low':'status-out';
+      const locOpts=LOCATIONS.map(l=>`<option value="${l}"${l===item.loc?' selected':''}>${l}</option>`).join('');
+      const tr=document.createElement('tr');
+
+      // Name cell
+      let nameCell;
+      if(editingItemId===item.id){
+        nameCell=`<td><input class="item-inline-input" id="item-input-${item.id}"
+          value="${item.name.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          onblur="saveItemName('${item.id}',event)" onkeydown="saveItemName('${item.id}',event)"
+          onclick="event.stopPropagation()"></td>`;
+      } else {
+        nameCell=`<td><div class="item-name-wrap">
+          <span class="status-dot ${dotCls}"></span>
+          <span class="item-name">${item.name}</span>
+          <button class="item-edit-btn" onclick="startRenameItem('${item.id}',event)">✎</button>
+        </div></td>`;
+      }
+
+      // Unit cell (clickable label or inline input)
+      let unitCell;
+      if(editingUnitId===item.id){
+        unitCell=`<input class="unit-inline-input" id="unit-input-${item.id}"
+          value="${item.unit.replace(/"/g,'&quot;')}"
+          onblur="saveUnit('${item.id}',event)" onkeydown="saveUnit('${item.id}',event)"
+          onclick="event.stopPropagation()">`;
+      } else {
+        unitCell=`<span class="unit-label" onclick="startEditUnit('${item.id}',event)" title="Click to edit unit">${item.unit}</span>`;
+      }
+
+      tr.innerHTML=`
+        ${nameCell}
+        <td><select class="loc-select loc-${item.loc}" id="loc-sel-${item.id}" onchange="setLocation('${item.id}',this.value)">${locOpts}</select></td>
+        <td><div class="qty-controls">
+          <button class="qty-btn minus" onclick="changeQty('${item.id}',${-STEP})">−</button>
+          <div class="qty-display${item.liveQty===0?' zero':''}" id="qty-${item.id}">${fmt(item.liveQty)}</div>
+          <button class="qty-btn plus" onclick="changeQty('${item.id}',${STEP})">+</button>
+          ${unitCell}
+        </div></td>
+        <td style="text-align:center"><button class="del-btn" onclick="deleteItem('${item.id}')" title="Remove">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    const addTr=document.createElement('tr');
+    addTr.className='add-row';
+    addTr.innerHTML=`<td colspan="4"><button class="add-row-btn" onclick="openItemModal('${catKey}')">+ Add item to ${catMeta.label}</button></td>`;
+    tbody.appendChild(addTr);
+
+    sec.appendChild(hdr);sec.appendChild(table);root.appendChild(sec);
+  });
+
+  updateStats();
+}
+
+function saveCatInline(catKey,e){
+  if(e.type==='keydown'&&e.key!=='Enter'&&e.key!=='Escape')return;
+  if(e.key==='Escape'){editingCatKey=null;renderInventory();return;}
+  const inp=document.getElementById('cat-input-'+catKey);
+  if(inp&&inp.value.trim())categories[catKey].label=inp.value.trim();
+  editingCatKey=null;renderInventory();schedSave();
+}
+
+// ── TITLE EDIT ────────────────────────────────────────────────────────────────
+function startEditTitle(){
+  const h1=document.getElementById('app-title');
+  const inp=document.createElement('input');
+  inp.className='title-input';
+  inp.value=appTitle;
+  inp.onblur=saveTitle;
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key==='Escape')inp.blur();};
+  h1.replaceWith(inp);
+  inp.focus();inp.select();
+}
+function saveTitle(){
+  const inp=document.querySelector('.title-input');
+  if(!inp)return;
+  const val=inp.value.trim();
+  if(val)appTitle=val;
+  const h1=document.createElement('h1');
+  h1.id='app-title';h1.title='Click to rename';h1.textContent=appTitle;
+  h1.onclick=startEditTitle;
+  inp.replaceWith(h1);
+  schedSave();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadFromCloud();
+</script>
+</body>
+</html>
