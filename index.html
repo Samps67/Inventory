@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemical Inventory</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0f1117;--surface:#181c27;--border:#2a2f3f;--accent:#e8c840;--accent2:#3cb8a0;--danger:#e05c5c;--text:#d4dae8;--muted:#6b7390;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh;padding:16px 12px 80px;}
+  header{margin-bottom:16px;border-bottom:2px solid var(--accent);padding-bottom:12px;}
+  header h1{font-size:2rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);cursor:pointer;border-bottom:2px solid transparent;transition:border-color .15s;display:inline-block;}
+  header h1:hover{border-bottom-color:var(--accent);}
+  .title-input{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);background:rgba(0,0,0,.4);border:none;border-bottom:2px solid var(--accent);outline:none;width:90%;max-width:340px;}
+  .save-status{font-family:'Share Tech Mono',monospace;font-size:.73rem;margin-top:4px;}
+  .save-status.saving{color:var(--accent);}.save-status.saved{color:var(--accent2);}.save-status.error{color:var(--danger);}.save-status.loading{color:var(--muted);}
+  .summary-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:9px 12px;flex:1;min-width:75px;}
+  .s-label{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .s-val{font-size:1.55rem;font-weight:700;color:var(--accent);line-height:1.1;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center;}
+  .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 1px;}
+  .tbtn{font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:7px 12px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);border-radius:3px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,200,64,.07);}
+  .tbtn.green{border-color:var(--accent2);color:var(--accent2);background:rgba(60,184,160,.07);}
+  .tbtn.green:hover{background:rgba(60,184,160,.18);}
+  .tbtn.ml{margin-left:auto;}
+  .search-wrap{position:relative;margin-bottom:12px;}
+  .search-input{width:100%;padding:9px 36px;background:var(--surface);border:1.5px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1rem;border-radius:4px;outline:none;transition:border-color .15s;}
+  .search-input:focus{border-color:var(--accent2);}
+  .search-input::placeholder{color:var(--muted);}
+  .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.9rem;pointer-events:none;}
+  .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;display:none;}
+  .search-clear.visible{display:block;}
+  .category-section{margin-bottom:12px;}
+  .category-header{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:3px 3px 0 0;user-select:none;}
+  .cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .cat-name-wrap{flex:1;display:flex;align-items:center;gap:7px;cursor:pointer;min-width:0;}
+  .cat-name-wrap h2{font-size:1rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
+  .cat-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s;}
+  .category-header:hover .cat-actions,.category-header:active .cat-actions{opacity:1;}
+  .cat-btn{font-size:.66rem;padding:3px 7px;border:1px solid transparent;background:none;color:var(--muted);border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;white-space:nowrap;}
+  .cat-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .cat-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+  .cat-count{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);flex-shrink:0;}
+  .chevron{font-size:.8rem;color:var(--muted);transition:transform .2s;cursor:pointer;flex-shrink:0;}
+  .category-section.collapsed .chevron{transform:rotate(-90deg);}
+  .category-section.drag-over .category-header{outline:2px dashed var(--accent2);outline-offset:-2px;}
+  .items-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-top:none;table-layout:fixed;}
+  .category-section.collapsed .items-table{display:none;}
+  .items-table th{font-family:'Share Tech Mono',monospace;font-size:.63rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+  .items-table td{padding:8px 8px;font-size:.93rem;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;}
+  .items-table tr:last-child td{border-bottom:none;}
+  .items-table tr.item-row:hover td,.items-table tr.item-row:active td{background:rgba(255,255,255,.025);}
+  .items-table tr.dragging{opacity:.4;}
+  .items-table tr.drag-target td{border-top:2px solid var(--accent2);}
+  .col-name{width:auto;}.col-loc{width:82px;}.col-qty{width:150px;}.col-del{width:30px;}
+  .name-cell-wrap{display:flex;flex-direction:column;gap:2px;}
+  .item-name-row{display:flex;align-items:center;gap:4px;}
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;flex-shrink:0;}
+  .status-ok{background:var(--accent2);}.status-low{background:var(--accent);}.status-out{background:var(--danger);}
+  .item-name{font-weight:600;cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s;line-height:1.2;}
+  .item-name:hover{border-bottom-color:var(--accent);}
+  .item-inline-input{font-family:'Barlow Condensed',sans-serif;font-size:.93rem;font-weight:600;background:rgba(0,0,0,.45);border:1.5px solid var(--accent);color:var(--text);border-radius:3px;padding:2px 6px;outline:none;width:100%;}
+  .pcp-row{display:flex;align-items:center;gap:3px;margin-top:1px;}
+  .pcp-tag{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);opacity:.6;flex-shrink:0;}
+  .pcp-label{font-family:'Share Tech Mono',monospace;font-size:.63rem;color:var(--muted);cursor:pointer;border-bottom:1px dashed transparent;transition:all .15s;}
+  .pcp-label:hover{border-bottom-color:var(--accent2);color:var(--accent2);}
+  .pcp-label.empty{opacity:.35;}
+  .pcp-inline-input{font-family:'Share Tech Mono',monospace;font-size:.63rem;background:rgba(0,0,0,.45);border:1.5px solid var(--accent2);color:var(--text);border-radius:3px;padding:1px 4px;outline:none;width:70px;}
+  .loc-select{font-family:'Share Tech Mono',monospace;font-size:.7rem;font-weight:bold;padding:4px 4px;border-radius:3px;cursor:pointer;outline:none;transition:all .15s;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b7390'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 4px center;padding-right:16px;width:100%;}
+  .loc-0{background-color:rgba(92,143,224,.15);color:#5c8fe0;border:1px solid rgba(92,143,224,.3);}
+  .loc-1{background-color:rgba(232,200,64,.12);color:#e8c840;border:1px solid rgba(232,200,64,.3);}
+  .loc-2{background-color:rgba(176,92,224,.15);color:#b05ce0;border:1px solid rgba(176,92,224,.3);}
+  .loc-3{background-color:rgba(60,184,160,.15);color:#3cb8a0;border:1px solid rgba(60,184,160,.3);}
+  .loc-4{background-color:rgba(224,92,92,.12);color:#e05c5c;border:1px solid rgba(224,92,92,.3);}
+  .loc-select option{background:#1a1e2e;color:var(--text);font-weight:normal;}
+  .qty-controls{display:flex;align-items:center;}
+  .qty-btn{width:28px;height:28px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.05rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;font-family:'Barlow Condensed',sans-serif;font-weight:700;flex-shrink:0;}
+  .qty-btn:hover,.qty-btn:active{border-color:var(--accent);color:var(--accent);}
+  .qty-btn.minus{border-radius:3px 0 0 3px;}
+  .qty-btn.plus{border-radius:0 3px 3px 0;}
+  .qty-display{min-width:36px;height:28px;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--accent);font-weight:bold;}
+  .qty-display.zero{color:var(--danger);}
+  .unit-label{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--muted);margin-left:4px;cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42px;}
+  .unit-label:hover{border-bottom-color:var(--accent2);color:var(--accent2);}
+  .unit-inline-input{font-family:'Share Tech Mono',monospace;font-size:.62rem;background:rgba(0,0,0,.45);border:1.5px solid var(--accent2);color:var(--text);border-radius:3px;padding:1px 3px;outline:none;width:46px;margin-left:4px;}
+  .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.88rem;padding:3px 4px;border-radius:3px;transition:all .12s;line-height:1;}
+  .del-btn:hover,.del-btn:active{color:var(--danger);background:rgba(224,92,92,.12);}
+  .drag-handle{color:var(--muted);cursor:grab;font-size:.9rem;opacity:0;transition:opacity .15s;touch-action:none;display:none;}
+  @media(min-width:600px){
+    .drag-handle{display:inline;}
+    tr:hover .drag-handle{opacity:1;}
+    .col-loc{width:96px;}.col-qty{width:175px;}.col-del{width:32px;}
+    body{padding:20px 16px 80px;}
+  }
+  .add-row td{padding:0!important;}
+  .add-row-btn{width:100%;padding:8px 12px;background:none;border:none;border-top:1px dashed var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.68rem;letter-spacing:.04em;cursor:pointer;text-align:left;transition:all .15s;}
+  .add-row-btn:hover{color:var(--accent2);background:rgba(60,184,160,.05);}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;align-items:flex-end;justify-content:center;padding:0;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent2);border-radius:12px 12px 0 0;padding:20px 18px 32px;width:100%;max-width:480px;box-shadow:0 -10px 40px rgba(0,0,0,.5);max-height:92vh;overflow-y:auto;}
+  @media(min-width:600px){.modal-bg{align-items:center;padding:16px;}.modal{border-radius:6px;padding:22px;}}
+  .modal h3{font-size:1.1rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:16px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+  .field input,.field select{width:100%;padding:10px 10px;background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;border-radius:4px;outline:none;transition:border-color .15s;}
+  .field input:focus,.field select:focus{border-color:var(--accent2);}
+  .field select option{background:#1a1e2e;}
+  .field-row{display:flex;gap:9px;}
+  .field-row .field{flex:1;}
+  .color-swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;}
+  .swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;}
+  .swatch.active,.swatch:hover{border-color:#fff;transform:scale(1.15);}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+  .modal-btn{font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:9px 18px;border-radius:4px;cursor:pointer;transition:all .15s;}
+  .modal-btn.cancel{background:none;border:1.5px solid var(--border);color:var(--muted);}
+  .modal-btn.cancel:hover{border-color:var(--danger);color:var(--danger);}
+  .modal-btn.confirm{background:rgba(60,184,160,.15);border:1.5px solid var(--accent2);color:var(--accent2);}
+  .modal-btn.confirm:hover{background:rgba(60,184,160,.3);}
+  .loc-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+  .loc-item{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:9px 11px;}
+  .loc-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .loc-item-name{flex:1;font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:600;}
+  .loc-del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:3px 6px;border-radius:2px;transition:all .12s;}
+  .loc-del-btn:hover{color:var(--danger);}
+  .loc-add-row{display:flex;gap:8px;align-items:center;}
+  .loc-add-input{flex:1;padding:9px 10px;background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1rem;border-radius:3px;outline:none;}
+  .loc-add-input:focus{border-color:var(--accent2);}
+  .loc-add-btn{font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:700;padding:9px 13px;border:1.5px solid var(--accent2);background:rgba(60,184,160,.1);color:var(--accent2);border-radius:3px;cursor:pointer;white-space:nowrap;}
+  #lock-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .lock-box{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:8px;padding:32px 28px;width:100%;max-width:340px;text-align:center;}
+  .lock-box h2{font-size:1.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .lock-box p{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--muted);margin-bottom:24px;}
+  .lock-input{width:100%;padding:11px 14px;background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;border-radius:4px;outline:none;text-align:center;letter-spacing:.1em;margin-bottom:10px;transition:border-color .15s;}
+  .lock-input:focus{border-color:var(--accent);}
+  .lock-btn{width:100%;padding:11px;background:rgba(232,200,64,.1);border:1.5px solid var(--accent);color:var(--accent);font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all .15s;}
+  .lock-btn:hover{background:rgba(232,200,64,.2);}
+  .lock-error{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--danger);margin-top:8px;min-height:18px;}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.76rem;line-height:2.2;}
+  .empty-state .big{font-size:2rem;margin-bottom:6px;}
+  .no-results{text-align:center;padding:20px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.73rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="app-title" onclick="startEditTitle()" title="Click to rename">🧪 Chemical Inventory</h1>
+  <div class="save-status loading" id="save-status">Connecting...</div>
+</header>
+
+<div class="summary-bar">
+  <div class="summary-card"><div class="s-label">Total SKUs</div><div class="s-val" id="stat-skus">—</div></div>
+  <div class="summary-card"><div class="s-label">Total Units</div><div class="s-val" id="stat-units">—</div></div>
+  <div class="summary-card"><div class="s-label">Low / Out</div><div class="s-val" id="stat-low">—</div></div>
+</div>
+
+<div class="toolbar">
+  <label>Filter:</label>
+  <button class="tbtn active" id="filter-all" onclick="filterLoc('all',this)">All</button>
+  <div id="loc-filter-btns"></div>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn green" onclick="openCatModal()">+ Category</button>
+  <button class="tbtn green" onclick="openItemModal(null)">+ Item</button>
+  <button class="tbtn ml" onclick="openLocModal()">⚙ Locations</button>
+</div>
+
+<div class="search-wrap">
+  <span class="search-icon">🔍</span>
+  <input class="search-input" id="search-input" type="text" placeholder="Search products or PCP numbers…" oninput="onSearch(this.value)">
+  <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+</div>
+
+<div id="lock-screen">
+  <div class="lock-box">
+    <h2>🧪 Chemical Inventory</h2>
+    <p>Enter password to continue</p>
+    <input class="lock-input" id="lock-input" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPassword()">
+    <button class="lock-btn" onclick="checkPassword()">Unlock</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
+<div id="inventory-root"></div>
+
+<div class="modal-bg" id="item-modal-bg">
+  <div class="modal">
+    <h3 id="item-modal-title">Add Item</h3>
+    <div class="field"><label>Product Name</label><input type="text" id="f-name" placeholder="e.g. Temprid SC"></div>
+    <div class="field"><label>PCP Number <span style="color:var(--muted);font-size:.65rem">(optional)</span></label><input type="text" id="f-pcp" placeholder="e.g. 12345"></div>
+    <div class="field-row">
+      <div class="field"><label>Category</label><select id="f-cat"></select></div>
+      <div class="field"><label>Location</label><select id="f-loc"></select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Quantity</label><input type="number" id="f-qty" value="1" min="0" step="1"></div>
+      <div class="field"><label>Unit</label><input type="text" id="f-unit" placeholder="boxes, bottles…"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeItemModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="submitItem()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="cat-modal-bg">
+  <div class="modal">
+    <h3 id="cat-modal-title">Add Category</h3>
+    <div class="field"><label>Category Name</label><input type="text" id="cf-name" placeholder="e.g. Rodents"></div>
+    <div class="field"><label>Colour</label><div class="color-swatches" id="color-swatches"></div></div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeCatModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="submitCat()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="loc-modal-bg">
+  <div class="modal">
+    <h3>Manage Locations</h3>
+    <div class="loc-list" id="loc-list"></div>
+    <div class="loc-add-row">
+      <input class="loc-add-input" id="loc-add-input" type="text" placeholder="New location name…" onkeydown="if(event.key==='Enter')addLocation()">
+      <button class="loc-add-btn" onclick="addLocation()">+ Add</button>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn confirm" onclick="closeLocModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const app = initializeApp({ apiKey:"AIzaSyDee8qN8IgF6y1u-quljtc25zsDqIDOUwk", authDomain:"chemical-inventory-7e0c4.firebaseapp.com", projectId:"chemical-inventory-7e0c4" });
+const db = getFirestore(app);
+window._fbGet = async()=>{ const s=await getDoc(doc(db,'inventory','main')); return s.exists()?s.data().payload:null; };
+window._fbSet = async(p)=>{ await setDoc(doc(db,'inventory','main'),{payload:p},{merge:true}); };
+window._fbReady();
+</script>
+
+<script>
+// ── FIREBASE BRIDGE ───────────────────────────────────────────────
+async function dbLoad(){ return await window._fbGet(); }
+async function dbSave(p){ await window._fbSet(p); }
+
+// ── SEED DATA (used only on first load if Firestore is empty) ─────
+const SEED = {"live":[{"id":"id1tsedq19q","cat":"ants","loc":"Crate","pcp":"32524","qty":1,"name":"Temprid SC","unit":"Bottles","liveQty":3,"origLoc":"Shop"},{"id":"clvmx44k5oe","cat":"ants","loc":"Crate","pcp":"34599","qty":1,"name":"Suspend Polyzone","unit":"Bottles","liveQty":6,"origLoc":"Shop"},{"id":"dkweyppnlvp","cat":"ants","loc":"Crate","pcp":"27428","qty":1,"name":"Demand CS","unit":"units","liveQty":0,"origLoc":"Shop"},{"id":"nuy9rxydyvh","cat":"ants","loc":"Crate","pcp":"24175","qty":0,"name":"Dragnet","unit":"units","liveQty":8,"origLoc":"Shop"},{"id":"gef5cviq2oq","cat":"ants","loc":"Crate","pcp":"13779","qty":1,"name":"Pyrocide 300","unit":"jug","liveQty":1,"origLoc":"Shop"},{"id":"a1gzntt91eu","cat":"ants","loc":"Crate","pcp":"35607","qty":1,"name":"PM50 Aerosol","unit":"box","liveQty":1,"origLoc":"Shop"},{"id":"iis8pqr7f8b","cat":"ants","loc":"Crate","pcp":"33306","qty":4,"name":"Scorpio Liquid Ant Bait","unit":"boxes","liveQty":5,"origLoc":"Shop"},{"id":"5q1hrzf6xh8","cat":"ants","loc":"Crate","pcp":"30513","qty":2,"name":"MaxForce Quantum Ant Bait","unit":"boxes","liveQty":2,"origLoc":"Shop"},{"id":"9zholo0x92n","cat":"ants","loc":"Crate","pcp":"30173","qty":1,"name":"Greenway Liquid Ant Bait","unit":"box","liveQty":1,"origLoc":"Shop"},{"id":"vbfw8t8k1mj","cat":"ants","loc":"Crate","pcp":"99204","qty":2,"name":"Doktor Doom Hornet & Wasp Annihilator","unit":"boxes","liveQty":2,"origLoc":"Shop"},{"id":"8ej2ve2aca7","cat":"ants","loc":"Crate","pcp":"31883","qty":2,"name":"On Guard Hornet & Wasp Blaster","unit":"boxes","liveQty":2,"origLoc":"Shop"},{"id":"d6g9txf9rvl","cat":"ants","loc":"Crate","pcp":"31789","qty":1,"name":"On Guard Hornet & Wasp Foam","unit":"box","liveQty":1,"origLoc":"Shop"},{"id":"ncmh3z8mdcq","cat":"ants","loc":"Crate","pcp":"24091","qty":1,"name":"Tim-Bor","unit":"pail","liveQty":1,"origLoc":"Crate"},{"id":"4oeh3857reb","cat":"ants","loc":"Crate","pcp":"13074","qty":8,"name":"Pro Pyrodust","unit":"boxes","liveQty":8,"origLoc":"Crate"},{"id":"rt57j2mheur","cat":"ants","loc":"Crate","pcp":"31225","qty":4,"name":"On Guard 4L","unit":"jugs","liveQty":20,"origLoc":"Crate"},{"id":"xfv2rve7h2h","cat":"ants","loc":"Crate","pcp":"33306","qty":2,"name":"Scorpio Pro","unit":"bottles","liveQty":2,"origLoc":"Shop"},{"id":"wo1alkxge3q","cat":"rodents","loc":"Crate","pcp":"22239","qty":12,"name":"Contrac Blox","unit":"pails","liveQty":12,"origLoc":"Crate"},{"id":"unkw7kyxa7","cat":"rodents","loc":"Crate","pcp":"25423","qty":2,"name":"Final Blox","unit":"pails","liveQty":2,"origLoc":"Crate"},{"id":"4vrbacz0rpx","cat":"rodents","loc":"Shop","pcp":"30140","qty":4,"name":"Contrac Bag Bait","unit":"boxes","liveQty":4.5,"origLoc":"Shop"},{"id":"rmrhzp9zwg8","cat":"rodents","loc":"Crate","qty":1,"name":"Provoke","unit":"container","liveQty":1,"origLoc":"Shop"},{"id":"wktcg71m6ih","cat":"bedbugs","loc":"Crate","qty":1,"name":"BEAP Bedbug Detection","unit":"box","liveQty":2.5,"origLoc":"Shop"},{"id":"4e14uy691ss","cat":"bedbugs","loc":"Shop","pcp":"3374","qty":1,"name":"Apprehend","unit":"box","liveQty":1,"origLoc":"Shop"},{"id":"rvmd3z9n74e","cat":"bedbugs","loc":"Crate","qty":1,"name":"Sensci Volcano Bedbug Trap","unit":"box","liveQty":1,"origLoc":"Crate"},{"id":"qze38ma515d","cat":"general","loc":"Crate","qty":2,"name":"Yellow Jacket Traps","unit":"boxes","liveQty":3,"origLoc":"Crate"},{"id":"iojf725xn9b","cat":"general","loc":"Crate","qty":1,"name":"Window Web Flytrap","unit":"Box","liveQty":3,"origLoc":"Shop"},{"id":"xqnqqhtkh5","cat":"general","loc":"Crate","pcp":"","qty":6,"name":"Insect Lamps 18\"","unit":"units","liveQty":6,"origLoc":"Shop"},{"id":"c4mcou2hhb5","cat":"general","loc":"Crate","qty":2,"name":"Ants No More Bait Station","unit":"units","liveQty":2,"origLoc":"Crate"},{"id":"2jkmtn5xx27","cat":"general","loc":"Crate","qty":3,"name":"Fly Glue Boards","unit":"boxes","liveQty":5,"origLoc":"Crate"},{"id":"47l66hvcasi","cat":"general","loc":"Crate","qty":1.5,"name":"Catchmaster Insect Monitors","unit":"boxes","liveQty":2,"origLoc":"Crate"},{"id":"fo1yn043y7l","cat":"general","loc":"Crate","qty":2,"name":"Bug Bar","unit":"boxes","liveQty":3,"origLoc":"Crate"},{"id":"f3f9lg4dyob","cat":"general","loc":"Crate","qty":16,"name":"Rodent Bait Stations","unit":"boxes","liveQty":14,"origLoc":"Crate"},{"id":"3nafh2l7cv3","cat":"general","loc":"Crate","qty":2,"name":"Repeater Catch-All Live Traps","unit":"boxes","liveQty":3,"origLoc":"Crate"},{"id":"q4m32sjybdl","cat":"general","loc":"Crate","qty":2,"name":"Trapper T-Rex Snap Traps","unit":"boxes","liveQty":2,"origLoc":"Crate"},{"id":"vrsjx050vf","cat":"general","loc":"Crate","qty":1,"name":"Trapper Mini Rex Snap Traps","unit":"box","liveQty":1,"origLoc":"Crate"},{"id":"dk509mlueqp","cat":"supplies","loc":"Crate","qty":6,"name":"Gloves LARGE","unit":"boxes","liveQty":8,"origLoc":"Crate"},{"id":"elv40zvslws","cat":"supplies","loc":"Crate","pcp":"","qty":1,"name":"Gloves MEDIUM","unit":"Box","liveQty":1,"origLoc":"Crate"},{"id":"9vbh3er14fa","cat":"supplies","loc":"Crate","qty":2,"name":"Spill Kits","unit":"kits","liveQty":2,"origLoc":"Crate"},{"id":"v4ke650775","cat":"supplies","loc":"Crate","qty":2,"name":"New Backpacks","unit":"units","liveQty":2,"origLoc":"Crate"},{"id":"l6h1jwhbbpk","cat":"supplies","loc":"Crate","qty":6,"name":"Jars","unit":"flats","liveQty":6,"origLoc":"Crate"},{"id":"9qp0c648lr","cat":"supplies","loc":"Shop","pcp":"","qty":3,"name":"Half Masks","unit":"units","liveQty":3,"origLoc":"Shop"},{"id":"o9if85gocq","cat":"supplies","loc":"Shop","pcp":"","qty":1,"name":"Full Face Mask","unit":"units","liveQty":1,"origLoc":"Shop"},{"id":"lo02ho8qic","cat":"supplies","loc":"Shop","pcp":"","qty":0,"name":"Mask Cartridges","unit":"units","liveQty":0,"origLoc":"Shop"},{"id":"3nddvgvmnko","cat":"ants","loc":"Crate","pcp":"","qty":1,"name":"Niban","unit":"Box","liveQty":3,"origLoc":"Crate"},{"id":"faqw084ks1e","cat":"general","loc":"Crate","pcp":"","qty":5,"name":"Exterior Rodent Stations","unit":"Units","liveQty":35,"origLoc":"Crate"},{"id":"ywwamrbmw9","cat":"supplies","loc":"Shop","pcp":"","qty":2,"name":"4L B&G NEW","unit":"Units","liveQty":2,"origLoc":"Shop"},{"id":"prd4lkvi74","cat":"supplies","loc":"Shop","pcp":"","qty":1,"name":"Queen Mattress Cover Bedbug","unit":"units","liveQty":1,"origLoc":"Shop"}],"appTitle":"Chemical Inventory","locations":["Shop","Crate","Office"],"categories":{"ants":{"color":"#e8a840","label":"Insecticides"},"bedbugs":{"color":"#b05ce0","label":"Bed Bugs"},"general":{"color":"#5c8fe0","label":"Traps & Stations etc."},"rodents":{"color":"#e05c5c","label":"Rodenticides"},"supplies":{"color":"#7a8aa0","label":"Supplies & Equipment"}}};
+
+// ── CONSTANTS ─────────────────────────────────────────────────────
+const CAT_COLORS=['#e8a840','#e8c840','#e05c5c','#b05ce0','#3cb8a0','#5c8fe0','#7a8aa0','#e87070','#70c4e8','#a0e870','#e870b0','#70e8a0'];
+const LOC_COLORS=['#5c8fe0','#e8c840','#b05ce0','#3cb8a0','#e05c5c'];
+const STEP=1;
+
+// ── STATE ─────────────────────────────────────────────────────────
+let categories={},live=[],locations=['Shop','Crate','Office'],appTitle='🧪 Chemical Inventory';
+let currentLoc='all',searchQuery='',editingItemId=null,editingField=null;
+let editingCatModalKey=null,selectedColor=CAT_COLORS[0],saveTimer=null,dragSrcId=null,dragSrcCat=null;
+
+// ── STATUS ────────────────────────────────────────────────────────
+function setStatus(msg,cls){const el=document.getElementById('save-status');el.className='save-status '+cls;el.textContent=msg;}
+function schedSave(){
+  clearTimeout(saveTimer);setStatus('Saving...','saving');
+  saveTimer=setTimeout(async()=>{
+    try{await dbSave({categories,live,locations,appTitle});setStatus('✓ Saved','saved');}
+    catch(e){setStatus('⚠ Save failed','error');console.error(e);}
+  },700);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────
+window._fbReady = async function(){
+  setStatus('Connecting...','loading');
+  try{
+    const data=await dbLoad();
+    if(data&&data.categories&&Object.keys(data.categories).length>0){
+      categories=data.categories;live=data.live||[];
+      if(data.locations&&data.locations.length)locations=data.locations;
+      if(data.appTitle){appTitle=data.appTitle;document.getElementById('app-title').textContent=appTitle;}
+      setStatus('✓ Loaded','saved');
+    } else {
+      // First time — seed with existing data
+      categories=SEED.categories;live=SEED.live;locations=SEED.locations;appTitle=SEED.appTitle;
+      await dbSave({categories,live,locations,appTitle});
+      setStatus('✓ Data migrated!','saved');
+    }
+  }catch(e){setStatus('⚠ Could not connect','error');console.error(e);}
+  renderLocFilterBtns();renderInventory();
+};
+
+// ── UTILS ─────────────────────────────────────────────────────────
+function uid(){return Math.random().toString(36).slice(2);}
+function getStatus(q){return q===0?'out':q<=1?'low':'ok';}
+function fmt(n){return n%1===0?String(n):String(n);}
+function locClass(loc){const i=locations.indexOf(loc);return'loc-'+(i>=0?i:0);}
+function updateStats(){
+  const vis=currentLoc==='all'?live:live.filter(i=>i.loc===currentLoc);
+  document.getElementById('stat-skus').textContent=vis.length;
+  document.getElementById('stat-units').textContent=fmt(Math.round(vis.reduce((s,i)=>s+i.liveQty,0)*10)/10);
+  document.getElementById('stat-low').textContent=vis.filter(i=>i.liveQty<=1).length;
+}
+function onSearch(val){searchQuery=val.toLowerCase();document.getElementById('search-clear').classList.toggle('visible',!!val);renderInventory();}
+function clearSearch(){document.getElementById('search-input').value='';onSearch('');}
+function renderLocFilterBtns(){
+  document.getElementById('loc-filter-btns').innerHTML=locations.map(l=>`<button class="tbtn${currentLoc===l?' active':''}" onclick="filterLoc('${l}',this)">${l}</button>`).join('');
+}
+function filterLoc(loc,btn){currentLoc=loc;document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderInventory();}
+function changeQty(id,delta){
+  const item=live.find(i=>i.id===id);if(!item)return;
+  item.liveQty=Math.max(0,Math.round((item.liveQty+delta)*10)/10);
+  const el=document.getElementById('qty-'+id);
+  if(el){el.textContent=fmt(item.liveQty);el.className='qty-display'+(item.liveQty===0?' zero':'');}
+  updateStats();schedSave();
+}
+function setLocation(id,newLoc){
+  const item=live.find(i=>i.id===id);if(!item)return;
+  item.loc=newLoc;
+  const sel=document.getElementById('loc-sel-'+id);
+  if(sel)sel.className='loc-select '+locClass(newLoc);
+  updateStats();schedSave();
+}
+function startEdit(id,field,e){
+  if(e)e.stopPropagation();
+  editingItemId=id;editingField=field;renderInventory();
+  setTimeout(()=>{const inp=document.getElementById(field+'-input-'+id);if(inp){inp.focus();inp.select();}},30);
+}
+function saveEdit(id,field,e){
+  if(e&&e.type==='keydown'&&e.key!=='Enter'&&e.key!=='Escape')return;
+  if(e&&e.key==='Escape'){editingItemId=null;editingField=null;renderInventory();return;}
+  const inp=document.getElementById(field+'-input-'+id);
+  const item=live.find(i=>i.id===id);
+  if(inp&&item){
+    const val=inp.value.trim();
+    if(field==='name'&&val)item.name=val;
+    if(field==='unit'&&val)item.unit=val;
+    if(field==='pcp')item.pcp=val;
+  }
+  editingItemId=null;editingField=null;renderInventory();schedSave();
+}
+function deleteItem(id){if(!confirm('Remove this item?'))return;live=live.filter(i=>i.id!==id);renderInventory();schedSave();}
+function toggleCat(secId){document.getElementById(secId).classList.toggle('collapsed');}
+function openCatModal(editKey){
+  editingCatModalKey=editKey||null;
+  selectedColor=editKey?categories[editKey].color:CAT_COLORS[0];
+  document.getElementById('cat-modal-title').textContent=editKey?'Edit Category':'Add Category';
+  document.getElementById('cf-name').value=editKey?categories[editKey].label:'';
+  document.getElementById('color-swatches').innerHTML=CAT_COLORS.map(c=>`<div class="swatch${c===selectedColor?' active':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`).join('');
+  document.getElementById('cat-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('cf-name').focus(),60);
+}
+function closeCatModal(){document.getElementById('cat-modal-bg').classList.remove('open');}
+function pickColor(c,el){selectedColor=c;document.querySelectorAll('#color-swatches .swatch').forEach(s=>s.classList.remove('active'));el.classList.add('active');}
+function submitCat(){
+  const name=document.getElementById('cf-name').value.trim();if(!name){document.getElementById('cf-name').focus();return;}
+  if(editingCatModalKey){categories[editingCatModalKey].label=name;categories[editingCatModalKey].color=selectedColor;}
+  else{categories['cat_'+uid()]={label:name,color:selectedColor};}
+  closeCatModal();renderInventory();schedSave();
+}
+function deleteCat(catKey,e){
+  e.stopPropagation();
+  const count=live.filter(i=>i.cat===catKey).length;
+  if(!confirm(`Delete "${categories[catKey].label}"?${count>0?' '+count+' item'+(count!==1?'s':'')+' will also be deleted.':''}`))return;
+  live=live.filter(i=>i.cat!==catKey);delete categories[catKey];renderInventory();schedSave();
+}
+function openLocModal(){renderLocList();document.getElementById('loc-modal-bg').classList.add('open');}
+function closeLocModal(){document.getElementById('loc-modal-bg').classList.remove('open');renderLocFilterBtns();renderInventory();schedSave();}
+function renderLocList(){
+  document.getElementById('loc-list').innerHTML=locations.map((l,i)=>`
+    <div class="loc-item">
+      <span class="loc-color-dot" style="background:${LOC_COLORS[i%LOC_COLORS.length]}"></span>
+      <span class="loc-item-name">${l}</span>
+      <button class="loc-del-btn" onclick="removeLocation(${i})">✕</button>
+    </div>`).join('');
+}
+function addLocation(){
+  const inp=document.getElementById('loc-add-input');
+  const name=inp.value.trim();if(!name)return;
+  if(locations.includes(name)){alert('Already exists.');return;}
+  locations.push(name);inp.value='';renderLocList();
+}
+function removeLocation(idx){
+  const name=locations[idx];
+  if(locations.length<=1){alert('You need at least one location.');return;}
+  const count=live.filter(i=>i.loc===name).length;
+  if(count>0&&!confirm(`"${name}" has ${count} item(s). Remove anyway?`))return;
+  locations.splice(idx,1);renderLocList();
+}
+function openItemModal(presetCat){
+  document.getElementById('item-modal-title').textContent='Add Item';
+  document.getElementById('f-name').value='';document.getElementById('f-pcp').value='';
+  document.getElementById('f-qty').value='1';document.getElementById('f-unit').value='';
+  const catSel=document.getElementById('f-cat');
+  catSel.innerHTML=Object.entries(categories).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  if(presetCat)catSel.value=presetCat;
+  document.getElementById('f-loc').innerHTML=locations.map(l=>`<option value="${l}">${l}</option>`).join('');
+  document.getElementById('item-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),60);
+}
+function closeItemModal(){document.getElementById('item-modal-bg').classList.remove('open');}
+function submitItem(){
+  const name=document.getElementById('f-name').value.trim();if(!name){document.getElementById('f-name').focus();return;}
+  live.push({id:uid(),name,pcp:document.getElementById('f-pcp').value.trim(),cat:document.getElementById('f-cat').value,loc:document.getElementById('f-loc').value,qty:parseFloat(document.getElementById('f-qty').value)||1,unit:document.getElementById('f-unit').value.trim()||'units',liveQty:parseFloat(document.getElementById('f-qty').value)||1,origLoc:document.getElementById('f-loc').value});
+  closeItemModal();renderInventory();schedSave();
+}
+function onDragStart(e,id,cat){dragSrcId=id;dragSrcCat=cat;setTimeout(()=>document.getElementById('row-'+id)?.classList.add('dragging'),0);}
+function onDragEnd(){dragSrcId=null;dragSrcCat=null;document.querySelectorAll('.dragging,.drag-target').forEach(el=>{el.classList.remove('dragging','drag-target');});}
+function onDragOver(e,targetId){e.preventDefault();document.querySelectorAll('.drag-target').forEach(el=>el.classList.remove('drag-target'));if(targetId!==dragSrcId)document.getElementById('row-'+targetId)?.classList.add('drag-target');}
+function onDropItem(e,targetId,catKey){
+  e.preventDefault();document.querySelectorAll('.dragging,.drag-target').forEach(el=>{el.classList.remove('dragging','drag-target');});
+  if(!dragSrcId||dragSrcId===targetId)return;
+  const src=live.find(i=>i.id===dragSrcId);if(!src)return;
+  src.cat=catKey;live=live.filter(i=>i.id!==dragSrcId);
+  const filtered=live.filter(i=>i.cat===catKey);
+  const tIdx=filtered.findIndex(i=>i.id===targetId);
+  if(tIdx>=0)filtered.splice(tIdx,0,src);else filtered.push(src);
+  live=filtered;renderInventory();schedSave();
+}
+function onDragOverCat(e,catKey){e.preventDefault();document.getElementById('sec-'+catKey)?.classList.add('drag-over');}
+function onDragLeaveCat(e,catKey){document.getElementById('sec-'+catKey)?.classList.remove('drag-over');}
+function onDropCat(e,catKey){
+  e.preventDefault();document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  if(!dragSrcId)return;
+  const src=live.find(i=>i.id===dragSrcId);
+  if(src&&src.cat!==catKey){src.cat=catKey;renderInventory();schedSave();}
+}
+function startEditTitle(){
+  const h1=document.getElementById('app-title');
+  const inp=document.createElement('input');inp.className='title-input';inp.value=appTitle;
+  inp.onblur=saveTitle;inp.onkeydown=e=>{if(e.key==='Enter'||e.key==='Escape')inp.blur();};
+  h1.replaceWith(inp);inp.focus();inp.select();
+}
+function saveTitle(){
+  const inp=document.querySelector('.title-input');if(!inp)return;
+  const val=inp.value.trim();if(val)appTitle=val;
+  const h1=document.createElement('h1');h1.id='app-title';h1.title='Click to rename';h1.textContent=appTitle;h1.onclick=startEditTitle;
+  inp.replaceWith(h1);schedSave();
+}
+function renderInventory(){
+  const root=document.getElementById('inventory-root');root.innerHTML='';
+  const catEntries=Object.entries(categories).sort((a,b)=>a[1].label.localeCompare(b[1].label));
+  if(catEntries.length===0){root.innerHTML=`<div class="empty-state"><div class="big">📦</div>No categories yet.<br>Hit <strong>+ Category</strong> to get started.</div>`;updateStats();return;}
+  let anyVisible=false;
+  catEntries.forEach(([catKey,catMeta])=>{
+    let items=live.filter(i=>i.cat===catKey&&(currentLoc==='all'||i.loc===currentLoc));
+    if(searchQuery)items=items.filter(i=>i.name.toLowerCase().includes(searchQuery)||(i.pcp||'').toLowerCase().includes(searchQuery));
+    if(items.length===0&&(currentLoc!=='all'||searchQuery))return;
+    anyVisible=true;
+    const secId='sec-'+catKey;
+    const sec=document.createElement('div');sec.className='category-section';sec.id=secId;
+    sec.ondragover=e=>onDragOverCat(e,catKey);sec.ondragleave=e=>onDragLeaveCat(e,catKey);sec.ondrop=e=>onDropCat(e,catKey);
+    const hdr=document.createElement('div');hdr.className='category-header';
+    hdr.style.background=catMeta.color+'18';hdr.style.borderLeft='3px solid '+catMeta.color;
+    hdr.innerHTML=`<span class="cat-dot" style="background:${catMeta.color}" onclick="toggleCat('${secId}')"></span>
+      <div class="cat-name-wrap" onclick="toggleCat('${secId}')"><h2 style="color:${catMeta.color}">${catMeta.label}</h2></div>
+      <div class="cat-actions">
+        <button class="cat-btn" onclick="openCatModal('${catKey}');event.stopPropagation()">✎ edit</button>
+        <button class="cat-btn del" onclick="deleteCat('${catKey}',event)">✕ delete</button>
+      </div>
+      <span class="cat-count">${items.length} item${items.length!==1?'s':''}</span>
+      <span class="chevron" onclick="toggleCat('${secId}')">▾</span>`;
+    const table=document.createElement('table');table.className='items-table';
+    table.innerHTML=`<colgroup><col class="col-name"><col class="col-loc"><col class="col-qty"><col class="col-del"></colgroup><thead><tr><th>Product / PCP</th><th>Location</th><th>Quantity</th><th></th></tr></thead><tbody></tbody>`;
+    const tbody=table.querySelector('tbody');
+    items.forEach(item=>{
+      const st=getStatus(item.liveQty);
+      const dotCls=st==='ok'?'status-ok':st==='low'?'status-low':'status-out';
+      const locOpts=locations.map(l=>`<option value="${l}"${l===item.loc?' selected':''}>${l}</option>`).join('');
+      const tr=document.createElement('tr');tr.className='item-row';tr.id='row-'+item.id;
+      tr.draggable=true;tr.ondragstart=e=>onDragStart(e,item.id,catKey);tr.ondragend=onDragEnd;tr.ondragover=e=>onDragOver(e,item.id);tr.ondrop=e=>onDropItem(e,item.id,catKey);
+      const isEditName=editingItemId===item.id&&editingField==='name';
+      const nameHtml=isEditName?`<input class="item-inline-input" id="name-input-${item.id}" value="${item.name.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" onblur="saveEdit('${item.id}','name',event)" onkeydown="saveEdit('${item.id}','name',event)" onclick="event.stopPropagation()">`:`<span class="status-dot ${dotCls}"></span><span class="item-name" onclick="startEdit('${item.id}','name',event)" title="Tap to rename">${item.name}</span>`;
+      const isEditPcp=editingItemId===item.id&&editingField==='pcp';
+      const pcpHtml=isEditPcp?`<div class="pcp-row"><span class="pcp-tag">PCP</span><input class="pcp-inline-input" id="pcp-input-${item.id}" value="${(item.pcp||'').replace(/"/g,'&quot;')}" onblur="saveEdit('${item.id}','pcp',event)" onkeydown="saveEdit('${item.id}','pcp',event)" onclick="event.stopPropagation()"></div>`:`<div class="pcp-row"><span class="pcp-tag">PCP</span><span class="pcp-label${!item.pcp?' empty':''}" onclick="startEdit('${item.id}','pcp',event)" title="Tap to edit PCP #">${item.pcp||'—'}</span></div>`;
+      const isEditUnit=editingItemId===item.id&&editingField==='unit';
+      const unitHtml=isEditUnit?`<input class="unit-inline-input" id="unit-input-${item.id}" value="${item.unit.replace(/"/g,'&quot;')}" onblur="saveEdit('${item.id}','unit',event)" onkeydown="saveEdit('${item.id}','unit',event)" onclick="event.stopPropagation()">`:`<span class="unit-label" onclick="startEdit('${item.id}','unit',event)" title="Tap to edit unit">${item.unit}</span>`;
+      tr.innerHTML=`<td><div class="name-cell-wrap"><div class="item-name-row">${nameHtml}</div>${pcpHtml}</div></td><td><select class="loc-select ${locClass(item.loc)}" id="loc-sel-${item.id}" onchange="setLocation('${item.id}',this.value)">${locOpts}</select></td><td><div class="qty-controls"><button class="qty-btn minus" onclick="changeQty('${item.id}',${-STEP})">−</button><div class="qty-display${item.liveQty===0?' zero':''}" id="qty-${item.id}">${fmt(item.liveQty)}</div><button class="qty-btn plus" onclick="changeQty('${item.id}',${STEP})">+</button>${unitHtml}</div></td><td><button class="del-btn" onclick="deleteItem('${item.id}')" title="Remove">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+    const addTr=document.createElement('tr');addTr.className='add-row';
+    addTr.innerHTML=`<td colspan="4"><button class="add-row-btn" onclick="openItemModal('${catKey}')">+ Add item to ${catMeta.label}</button></td>`;
+    tbody.appendChild(addTr);
+    sec.appendChild(hdr);sec.appendChild(table);root.appendChild(sec);
+  });
+  if(!anyVisible&&searchQuery)root.innerHTML=`<div class="no-results">No results for "<strong>${searchQuery}</strong>"</div>`;
+  updateStats();
+}
+
+// ── PASSWORD ──────────────────────────────────────────────────────
+const PASS='sampson';
+function checkPassword(){
+  const val=document.getElementById('lock-input').value;
+  if(val===PASS){
+    document.getElementById('lock-screen').style.display='none';
+    sessionStorage.setItem('mpc-auth','1');
+    window._fbReady();
+  } else {
+    const err=document.getElementById('lock-error');
+    err.textContent='Incorrect password. Try again.';
+    document.getElementById('lock-input').value='';
+    document.getElementById('lock-input').focus();
+    setTimeout(()=>err.textContent='',2500);
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+if(sessionStorage.getItem('mpc-auth')==='1'){
+  document.getElementById('lock-screen').style.display='none';
+}else{
+  setTimeout(()=>document.getElementById('lock-input').focus(),100);
+}
+</script>
+</body>
+</html>
